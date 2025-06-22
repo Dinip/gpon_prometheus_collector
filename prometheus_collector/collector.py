@@ -26,20 +26,20 @@ args = parser.parse_args()
 
 
 # Handle environment variables for list arguments
-def parse_env_list(env_var, arg_list, convert_func=str):
+def parse_env_list(env_var, arg_list, convert_func=str, default_value=None):
     if arg_list:
         return arg_list
     env_value = os.getenv(env_var)
     if env_value:
         return [convert_func(x.strip()) for x in env_value.split(',')]
-    return []
+    return [default_value] if default_value is not None else []
 
 
 # Apply environment variable defaults
 if not args.hostname:
     args.hostname = parse_env_list('GPON_HOSTNAMES', args.hostname)
 if not args.port:
-    args.port = parse_env_list('GPON_PORTS', args.port, int)
+    args.port = parse_env_list('GPON_PORTS', args.port, int, 23)
 if not args.user:
     args.user = parse_env_list('GPON_USERS', args.user)
 if not args.password:
@@ -198,6 +198,7 @@ async def fetch_and_update_metrics_via_telnet(hostname, port, username, password
 
         # Close connection
         writer.close()
+        await writer.wait_closed()
         print(f"Successfully collected metrics from {hostname}")
 
     except asyncio.TimeoutError:
@@ -209,10 +210,7 @@ async def fetch_and_update_metrics_via_telnet(hostname, port, username, password
 def fetch_and_update_metrics_via_telnet_sync(hostname, port, username, password):
     """Synchronous wrapper for the async telnet function"""
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(fetch_and_update_metrics_via_telnet(hostname, port, username, password))
-        loop.close()
+        asyncio.run(fetch_and_update_metrics_via_telnet(hostname, port, username, password))
     except Exception as e:
         print(f"Error in telnet sync wrapper for {hostname}: {e}")
 
